@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import PostList from './components/PostList.jsx';
 import PostForm from './components/PostForm.jsx';
 
-const API_URL = "https://act-5-backend.onrender.com/api/posts"; 
+const API_URL = "https://facebook-api-0w7s.onrender.com"; 
 export default function App() {
   const [posts, setPosts] = useState([]);
   const [editing, setEditing] = useState(null);
