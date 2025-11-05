@@ -6,7 +6,7 @@ function App() {
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
 
-  const backendUrl = "http://localhost:8080/api/posts";
+  const backendUrl = "https://act-5-backend.onrender.com";
 
   // Fetch posts
   useEffect(() => {
