@@ -1,150 +1,107 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from 'react';
+import PostList from './components/PostList.jsx';
+import PostForm from './components/PostForm.jsx';
 
-function App() {
+const API_URL = "https://act-5-backend.onrender.com"; 
+export default function App() {
   const [posts, setPosts] = useState([]);
-  const [author, setAuthor] = useState("");
-  const [content, setContent] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [editing, setEditing] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const backendUrl = "https://act-5-backend.onrender.com";
+  const fetchPosts = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/api/posts`);
+      if (!res.ok) throw new Error('Failed to fetch posts');
+      const data = await res.json();
+      data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // newest first
+      setPosts(data);
+    } catch (e) {
+      setError(e.message || 'Error fetching posts');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // Fetch posts
   useEffect(() => {
-    fetch(backendUrl)
-      .then((res) => res.json())
-      .then((data) => setPosts(data))
-      .catch((err) => console.error("Error fetching posts:", err));
+    fetchPosts();
   }, []);
 
-  // Submit new post
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleCreate = async (post) => {
+    const res = await fetch(`${API_URL}/api/posts`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(post)
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt || 'Create failed');
+    }
+    const saved = await res.json();
+    setPosts(prev => [saved, ...prev]);
+  };
 
-    if (!author || !content) {
-      alert("Please fill in author and content!");
+  const handleUpdate = async (id, updates) => {
+    const res = await fetch(`${API_URL}/api/posts/${id}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) throw new Error('Update failed');
+    const updated = await res.json();
+    setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
+    setEditing(null);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this post?')) return;
+    const res = await fetch(`${API_URL}/api/posts/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) {
+      alert('Failed to delete');
       return;
     }
-
-    const newPost = { author, content, imageUrl };
-
-    fetch(backendUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newPost),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        setPosts([...posts, data]);
-        setAuthor("");
-        setContent("");
-        setImageUrl("");
-      })
-      .catch((err) => console.error("Error posting:", err));
+    setPosts(prev => prev.filter(p => p.id !== id));
   };
 
   return (
-    <div style={{ fontFamily: "Arial", maxWidth: "600px", margin: "20px auto" }}>
-      <h2>Facebook-like Posts</h2>
+    <div className="container">
+      <div className="header">
+        <h1>Facebook-like Posts</h1>
+        <div className="small-muted">Simple Vite + React UI</div>
+      </div>
 
-      {/* Post form */}
-      <form onSubmit={handleSubmit} style={{ marginBottom: "20px" }}>
-        <input
-          type="text"
-          placeholder="Author"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          style={{
-            width: "100%",
-            marginBottom: "10px",
-            padding: "8px",
-            fontSize: "14px",
-          }}
-        />
-        <textarea
-          placeholder="What's on your mind?"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          style={{
-            width: "100%",
-            marginBottom: "10px",
-            padding: "8px",
-            fontSize: "14px",
-            minHeight: "60px",
-          }}
-        ></textarea>
-        <input
-          type="text"
-          placeholder="Image URL (optional)"
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          style={{
-            width: "100%",
-            marginBottom: "10px",
-            padding: "8px",
-            fontSize: "14px",
-          }}
-        />
-        <button
-          type="submit"
-          style={{
-            padding: "10px 15px",
-            backgroundColor: "#1877f2",
-            color: "white",
-            border: "none",
-            borderRadius: "5px",
-            cursor: "pointer",
-          }}
-        >
-          Post
-        </button>
-      </form>
+      <div className="card">
+        <h3 style={{marginTop:0}}>Create a post</h3>
+        <PostForm onSubmit={handleCreate} submitLabel="Post" />
+      </div>
 
-      {/* Posts list */}
-      {posts.length === 0 ? (
-        <p>No posts yet.</p>
+      {error && <div className="card" style={{borderLeft:'4px solid #ef4444', color:'#b91c1c'}}>{error}</div>}
+
+      {loading ? (
+        <div className="card small-muted">Loading posts...</div>
       ) : (
-        posts.map((post) => (
-          <div
-            key={post.id}
-            style={{
-              border: "1px solid #ccc",
-              borderRadius: "8px",
-              padding: "10px",
-              marginBottom: "20px",
-            }}
-          >
-            <h4>{post.author}</h4>
-            <p>{post.content}</p>
+        <PostList
+          posts={posts}
+          onEdit={(p) => setEditing(p)}
+          onDelete={handleDelete}
+        />
+      )}
 
-            {/* ✅ Fix: properly display external image URLs */}
-            {post.imageUrl && (
-              <img
-                src={post.imageUrl}
-                alt="Post"
-                style={{
-                  width: "100%",
-                  maxHeight: "400px",
-                  objectFit: "cover",
-                  borderRadius: "6px",
-                  marginTop: "10px",
-                }}
-                onError={(e) => {
-                  e.target.style.display = "none";
-                }}
-              />
-            )}
-
-            <p style={{ color: "gray", fontSize: "12px", marginTop: "8px" }}>
-              Created:{" "}
-              {post.createdDate
-                ? new Date(post.createdDate).toLocaleString()
-                : "Just now"}
-            </p>
-          </div>
-        ))
+      {editing && (
+        <div className="card">
+          <h3>Edit post</h3>
+          <PostForm
+            initial={editing}
+            onSubmit={(updates) => handleUpdate(editing.id, updates)}
+            onCancel={() => setEditing(null)}
+            submitLabel="Save"
+          />
+        </div>
       )}
     </div>
   );
 }
-
-export default App;
